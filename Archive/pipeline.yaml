@@ -1,0 +1,33 @@
+
+          # - task: PowerShell@2
+          #   displayName: Install ${{ parameters.SoftwareName }} on Windows
+          #   condition: eq(variables['Agent.OS'], 'Windows_NT')
+          #   inputs:
+          #     targetType: inline
+          #     script: |
+          #       $ErrorActionPreference = "Stop"
+          #       $SoftwareVersion = "${{ parameters.SoftwareVersion }}" 
+          #       $SoftwareDir = "C:\cicd-tools\${{ parameters.SoftwareName }}\$SoftwareVersion"
+          #       $SoftwareExe = "$SoftwareDir\${{ parameters.SoftwareName }}.exe"
+          #       $SoftwareUrl = "https://trial5ypbdb.jfrog.io/artifactory/cicd-pipeline-generic-local/${{ parameters.SoftwareName }}/windows/${{ parameters.SoftwareName }}-$SoftwareVersion/${{ parameters.SoftwareName }}.exe"
+
+          #       # Check if Git is already installed and remove it
+          #       if (Test-Path $SoftwareDir) {
+          #         Write-Host "Removing existing ${{ parameters.SoftwareName }} directory..."
+          #         Remove-Item -Recurse -Force $SoftwareDir
+          #       }
+
+          #       # Create the target installation directory
+          #       New-Item -ItemType Directory -Path $SoftwareDir -Force | Out-Null
+          #       Set-Location -Path $SoftwareDir
+
+          #       $SoftwareZip = "${{ parameters.SoftwareName }}-$SoftwareVersion-windows-amd64.zip"
+          #       # Download the Git executable file directly from JFrog Artifactory with basic authentication
+          #       Invoke-WebRequest -Uri "${{ parameters.artifactoryURL }}/cicd-generic-release-local/${{ parameters.SoftwareName }}/${{ parameters.SoftwareVersion }}/windows/${{ parameters.SoftwareName }}-$SoftwareVersion/$SoftwareZip" -OutFile $SoftwareZip
+
+          #       Expand-Archive -Path $SoftwareZip -DestinationPath $SoftwareDir -Force
+          #       Remove-Item $SoftwareZip
+
+          #       Write-Host "${{ parameters.SoftwareName }} Version:"
+          #       & "$SoftwareDir\${{ parameters.SoftwareName }}.exe" version
+          #       hostname
