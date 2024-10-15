@@ -36,7 +36,7 @@ parameters:
         - python-3.11.9
         - jdk-11.0.22
         - jdk-11.0.23
-        - jdk-17.0.5.8
+        - jdk-17.0.12
         - jdk-21.0.4
         - apache-ant-1.10.14
         - apache-ant-1.10.15
@@ -95,7 +95,7 @@ parameters:
         - 11.0.23
         - 1.8.0_391
         - 11.0.12
-        - 17.0.5.8
+        - 17.0.12
         - 21.0.4
         - 1.10.14
         - 1.10.15
@@ -345,7 +345,7 @@ stages:
                       Remove-Item -Recurse -Force $SoftwareDir
                     }
                     New-Item -ItemType Directory -Path $SoftwareDir -Force | Out-Null
-
+                    
                     $username = 'xxxxxxxxx'
                     $password = 'xxxxxxxxx'
                     $secPassword = ConvertTo-SecureString $password -AsPlainText -Force
@@ -458,6 +458,54 @@ stages:
                                 Write-Host "Updated PATH environment variable with: $SoftwareDir"
                             } else {
                                 Write-Host "Bicep path already exists in the PATH environment variable."
+                            }
+                        }
+                        "jdk" {
+                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
+                            $javaPattern = "C:\cicd-tools\jdk\*"
+                            $pathList = $currentPath.Split(';')
+                            $newPathList = $pathList | Where-Object { $_ -notlike $javaPattern }
+                            $newPath = [string]::Join(';', $newPathList)
+
+                            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
+
+                            $outFile = Join-Path $SoftwareDir "$AvailableSoftware.zip"
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$outFile" -Credential $credObject
+                            Write-Host "Extracting JDK ZIP to: $SoftwareDir"
+
+                            Expand-Archive -LiteralPath $outFile -DestinationPath $SoftwareDir -Force
+                            Remove-Item $outFile
+
+                            if (-Not (Test-Path "$SoftwareDir\$AvailableSoftware\bin\java.exe")) {
+                                Write-Host "Extraction failed. Ensure the ZIP file contains the JDK binaries."
+                                exit 1
+                            }
+                            $java_path = Join-Path $SoftwareDir "$AvailableSoftware"
+
+                            Write-Host "Setting JAVA_HOME to: $SoftwareDir"
+                            [System.Environment]::SetEnvironmentVariable('JAVA_HOME_21_X64', $java_path, [System.EnvironmentVariableTarget]::Machine)
+                                                        
+                            $binPath = Join-Path $java_path "bin"
+
+                            $currentPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+                            if ($currentPath -notlike "*$binPath*") {
+                                Write-Host "Adding JDK bin to system PATH"
+                                [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$SoftwareDir;$binPath", [System.EnvironmentVariableTarget]::Machine)
+                            } else {
+                                Write-Host "JDK bin is already in the system PATH"
+                            }
+                            # Verify the installation
+
+                            Write-Host "Verifying Java installation..."
+
+                            try {
+
+                                java -version
+
+                            } catch {
+
+                                Write-Host "Java is not installed correctly. Please check the environment variables and paths."
+
                             }
                         }
                     }
