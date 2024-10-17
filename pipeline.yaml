@@ -12,6 +12,7 @@ parameters:
       - Linux_Self_Hosted_Agent
       - ishan-test-vm-windows
       - ishan-test-vm-w
+      - ishan-test-vm-windows1
 
   - name: AvilableSoftware
     displayName: Select Avilable Software with version
@@ -33,7 +34,9 @@ parameters:
         - apache-maven-3.9.9
         - python-3.10.12
         - python-3.12.5
+        - python-3.11.4
         - python-3.11.9
+        - python-3.13.0
         - jdk-11.0.22
         - jdk-11.0.23
         - jdk-17.0.12
@@ -90,7 +93,9 @@ parameters:
         - 3.9.9
         - 3.10.12
         - 3.12.5
+        - 3.11.4
         - 3.11.9
+        - 3.13.0
         - 11.0.22
         - 11.0.23
         - 1.8.0_391
@@ -490,7 +495,7 @@ stages:
                             $currentPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
                             if ($currentPath -notlike "*$binPath*") {
                                 Write-Host "Adding JDK bin to system PATH"
-                                [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$SoftwareDir;$binPath", [System.EnvironmentVariableTarget]::Machine)
+                                [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$java_path;$binPath", [System.EnvironmentVariableTarget]::Machine)
                             } else {
                                 Write-Host "JDK bin is already in the system PATH"
                             }
@@ -507,5 +512,115 @@ stages:
                                 Write-Host "Java is not installed correctly. Please check the environment variables and paths."
 
                             }
+                        }
+                        "maven" {
+                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
+                            $mavenPattern = "C:\cicd-tools\maven\*"
+                            $pathList = $currentPath.Split(';')
+                            $newPathList = $pathList | Where-Object { $_ -notlike $mavenPattern }
+                            $newPath = [string]::Join(';', $newPathList)
+
+                            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
+                            
+                            $outFile = Join-Path $SoftwareDir "$AvailableSoftware.zip"
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$outFile" -Credential $credObject
+                            Write-Host "Extracting maven ZIP to: $outFile"
+
+                            Expand-Archive -LiteralPath $outFile -DestinationPath $SoftwareDir -Force
+                            Remove-Item $outFile
+
+                            if (-Not (Test-Path "$SoftwareDir\$AvailableSoftware\bin\mvn.cmd")) {
+                                Write-Host "Extraction failed. Ensure the ZIP file contains the Maven binaries."
+                                exit 1
+                            }
+
+                            # Set M2_HOME environment variable
+                            $maven_path = Join-Path $SoftwareDir "$AvailableSoftware"
+                            Write-Host "Setting M2_HOME to: $maven_path"
+                            [System.Environment]::SetEnvironmentVariable('M2_HOME', $maven_path, [System.EnvironmentVariableTarget]::Machine)
+
+                            # Add Maven bin directory to the PATH
+                            $binPath = Join-Path $maven_path "bin"
+                            $currentPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+
+                            if ($currentPath -notlike "*$binPath*") {
+                                Write-Host "Adding Maven bin to system PATH"
+                                [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$maven_path;$binPath", [System.EnvironmentVariableTarget]::Machine)
+                            } else {
+                                Write-Host "Maven bin is already in the system PATH"
+                            }
+                            Write-Host "Maven is install Successfully..."
+                        }
+                        # "python" {
+                        #     $outFile = Join-Path $SoftwareDir "$AvailableSoftware.zip"
+                        #     Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$outFile" -Credential $credObject
+                        #     Write-Host "Extracting Python ZIP to: $outFile"
+
+                        #     # Extract Python ZIP package
+                        #     Write-Host "Extracting Python embeddable package to: $SoftwareDir"
+                        #     Expand-Archive -Path $outFile -DestinationPath $SoftwareDir -Force
+
+                        #     # Set PYTHON_HOME environment variable
+                        #     Write-Host "Setting PYTHON_HOME to: $SoftwareDir"
+                        #     [System.Environment]::SetEnvironmentVariable('PYTHON_HOME', $SoftwareDir, [System.EnvironmentVariableTarget]::Machine)
+
+                        #     # Add Python to system PATH
+                        #     $binPath = Join-Path $SoftwareDir "python.exe"
+                        #     $currentPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+
+                        #     if ($currentPath -notlike "*$SoftwareDir*") {
+                        #         Write-Host "Adding Python to system PATH"
+                        #         [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
+                        #     } else {
+                        #         Write-Host "Python is already in the system PATH"
+                        #     }
+
+                        #     # Verify the installation
+                        #     Write-Host "Verifying Python installation..."
+                        #     try {
+                        #         python --version
+                        #     } catch {
+                        #         Write-Host "Python is not installed correctly. Please check the environment variables and paths."
+                        #     }
+                        #     # Clean up downloaded ZIP file
+                        #     Remove-Item $outFile -Force
+                        #     Write-Host "Python installation and configuration via embeddable package completed."
+                        # }
+                        "python" {
+                            $outFile = Join-Path $SoftwareDir "$AvailableSoftware.exe"
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.exe" -OutFile "$outFile" -Credential $credObject
+                            Write-Host "Download python file to: $outFile"
+
+                            # Run Python installer silently
+                            Write-Host "Installing Python $SoftwareVersion silently"
+                            Start-Process -FilePath $outFile -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1 TargetDir=$outFile" -Wait
+
+                            # Set PYTHON_HOME environment variable
+                            Write-Host "Setting PYTHON_HOME to: $SoftwareDir"
+                            [System.Environment]::SetEnvironmentVariable('PYTHON_HOME', $SoftwareDir, [System.EnvironmentVariableTarget]::Machine)
+
+                            # Add Python to system PATH
+                            $binPath = Join-Path $SoftwareDir "Scripts"
+                            $currentPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+
+                            if ($currentPath -notlike "*$SoftwareDir*") {
+                                Write-Host "Adding Python to system PATH"
+                                [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$SoftwareDir;$binPath", [System.EnvironmentVariableTarget]::Machine)
+                            } else {
+                                Write-Host "Python is already in the system PATH"
+                            }
+
+                            # Verify the installation
+                            # Write-Host "Verifying Python installation..."
+                            # try {
+                            #     python --version
+                            # } catch {
+                            #     Write-Host "Python is not installed correctly. Please check the environment variables and paths."
+                            # }
+                            # # Clean up installer
+                            # Remove-Item $installerPath -Force
+
+                            Write-Host "Python installation and configuration completed."
+
                         }
                     }
