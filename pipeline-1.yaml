@@ -649,19 +649,11 @@ stages:
                             Write-Host ".NET SDK installation and configuration completed."
                         }
                         "chrome" {
-                            # Enable TLS 1.2 for secure download
-                            Write-Host "Setting TLS1.2..."
-                            [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor "Tls12"
-
-                            # Define the download path and Chrome installer URL
-                            $chromeInstaller = Join-Path $SoftwareDir "chrome_installer.exe"
-                            $chromeDownloadUrl = "http://dl.google.com/chrome/install/375.126/chrome_installer.exe"
-                            # Download Google Chrome installer
-                            Write-Host "Downloading Google Chrome from $chromeDownloadUrl to $chromeInstaller"
-                            Invoke-WebRequest -Uri $chromeDownloadUrl -OutFile $chromeInstaller
-                            # Run the installer with silent installation options
+                            $outFile = Join-Path $SoftwareDir "chrome_installer.exe"
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.exe" -OutFile "$outFile" -Credential $credObject
+                            Write-Host "Download dotnet file to: $outFile"
                             Write-Host "Installing Google Chrome silently..."
-                            Start-Process -FilePath $chromeInstaller -ArgumentList "/silent", "/install" -Wait
+                            Start-Process -FilePath $outFile -ArgumentList "/silent", "/install" -Wait
 
                             # Verify installation
                             $chromePath = "C:\Program Files\Google\Chrome\Application\chrome.exe"
@@ -676,30 +668,77 @@ stages:
                             }
                             Write-Host "Google Chrome installation completed."
                         }
-                        "firefox" {
-                            # Enable TLS 1.2 for secure download
-                            Write-Host "Setting TLS1.2..."
-                            [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor "Tls12"
 
-                            # Define the source URL for downloading the Firefox installer
-                            $source = "https://download.mozilla.org/?product=firefox-latest&os=win64&lang=en-US"
-                            $destination = "$SoftwareDir\firefox.exe"
-                            # Download Firefox installer
-                            if (Get-Command 'Invoke-WebRequest') {
-                                Write-Host "Downloading Firefox installer..."
-                                Invoke-WebRequest $source -OutFile $destination
-                            } else {
-                                Write-Host "Using WebClient for download..."
-                                $WebClient = New-Object System.Net.WebClient
-                                $WebClient.DownloadFile($source, $destination)
-                            }
+                        "firefox" {
+                            $outFile = Join-Path $SoftwareDir "firefox.exe"
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.exe" -OutFile "$outFile" -Credential $credObject
+                            Write-Host "Download dotnet file to: $outFile"
+
                             # Install Firefox silently
                             Write-Host "Installing Firefox silently..."
-                            Start-Process -FilePath "$destination" -ArgumentList "/S" -Wait
+                            Start-Process -FilePath "$outFile" -ArgumentList "/S" -Wait
 
                             # Wait for the installation to complete
                             Write-Host "Waiting for the installation to complete..."
                             Start-Sleep -Seconds 35
                             Write-Host "Firefox installation completed successfully."
+                        }
+                        "azure-cli" {
+                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
+                            $azureCliPattern = "C:\cicd-tools\azure-cli\*"
+                            $pathList = $currentPath.Split(';')
+                            $newPathList = $pathList | Where-Object { $_ -notlike $azureCliPattern }
+                            $newPath = [string]::Join(';', $newPathList)
+                            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
+
+                            $outFile = Join-Path $SoftwareDir "$AvailableSoftware.zip"
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$outFile" -Credential $credObject
+                            Write-Host "Download azure-cli file to: $outFile"
+                            Expand-Archive -Path $outFile -DestinationPath $SoftwareDir
+                            Remove-Item $outFile
+
+                            # Add azure-cli to system PATH
+                            $binPath = Join-Path $SoftwareDir "bin"
+                            $currentPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+                            if ($currentPath -notlike "*$binPath*") {
+                                Write-Host "Adding azure-cli bin to system PATH"
+                                [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$SoftwareDir;$binPath", [System.EnvironmentVariableTarget]::Machine)
+                            } else {
+                                Write-Host "azure-cli bin is already in the system PATH"
+                            }
+                            Write-Host "azure-cli is install Successfully..."
+                        }
+                        "mysql" {
+                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
+                            $mysqlPattern = "C:\cicd-tools\mysql\*"
+                            $pathList = $currentPath.Split(';')
+                            $newPathList = $pathList | Where-Object { $_ -notlike $mysqlPattern }
+                            $newPath = [string]::Join(';', $newPathList)
+                            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
+                            Write-Host "Old MySQL paths removed from PATH."
+
+                            # Download MySQL installer from Artifactory
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.msi" -OutFile "$SoftwareDir\mysql-installer.msi" -Credential $credObject
+                            # Install MySQL silently with default options
+                            $installArgs = "/i `"$SoftwareDir\mysql-installer.msi`" /quiet /norestart"
+                            Start-Process msiexec.exe -ArgumentList $installArgs -Wait
+                            
+                            # After installation, check if MySQL is installed by verifying its executable path
+                            if (-not (Test-Path "$SoftwareDir\bin\mysql.exe")) {
+                                Write-Error "MySQL installation failed: mysql.exe not found!"
+                                exit 1
+                            }
+                            
+                            # Update PATH environment variable with MySQL bin folder if not already present
+                            if ($newPath -notlike "*$SoftwareDir\bin*") {
+                                [System.Environment]::SetEnvironmentVariable("PATH", "$newPath;$SoftwareDir\bin", [System.EnvironmentVariableTarget]::Machine)
+                                Write-Host "Updated PATH environment variable with: $SoftwareDir\bin"
+                            } else {
+                                Write-Host "MySQL path already exists in the PATH environment variable."
+                            }
+
+                            # Verify MySQL installation
+                            $mysqlVersion = & "$SoftwareDir\bin\mysql.exe" --version 2>&1
+                            Write-Host "MySQL version: $mysqlVersion"
                         }
                     }
