@@ -708,37 +708,102 @@ stages:
                             }
                             Write-Host "azure-cli is install Successfully..."
                         }
-                        "mysql" {
+                        "tabularEditor" {
+                            # Enable TLS 1.2 for secure download
+                            Write-Host "Setting TLS1.2..."
+                            [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor "Tls12"
+
                             $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
-                            $mysqlPattern = "C:\cicd-tools\mysql\*"
+                            $tabularEditorPattern = "C:\cicd-tools\tabularEditor\*"
                             $pathList = $currentPath.Split(';')
-                            $newPathList = $pathList | Where-Object { $_ -notlike $mysqlPattern }
+                            $newPathList = $pathList | Where-Object { $_ -notlike $tabularEditorPattern }
                             $newPath = [string]::Join(';', $newPathList)
                             [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
-                            Write-Host "Old MySQL paths removed from PATH."
 
-                            # Download MySQL installer from Artifactory
-                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.msi" -OutFile "$SoftwareDir\mysql-installer.msi" -Credential $credObject
-                            # Install MySQL silently with default options
-                            $installArgs = "/i `"$SoftwareDir\mysql-installer.msi`" /quiet /norestart"
-                            Start-Process msiexec.exe -ArgumentList $installArgs -Wait
-                            
-                            # After installation, check if MySQL is installed by verifying its executable path
-                            if (-not (Test-Path "$SoftwareDir\bin\mysql.exe")) {
-                                Write-Error "MySQL installation failed: mysql.exe not found!"
+                            $outFile = Join-Path $SoftwareDir "$AvailableSoftware.zip"
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$outFile" -Credential $credObject
+                            Write-Host "Download tabularEditor file to: $outFile" -Force
+                            Expand-Archive -Path $outFile -DestinationPath $SoftwareDir
+                            Remove-Item $outFile
+
+                            [System.Environment]::SetEnvironmentVariable("PATH", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
+                            # Verify installation by checking for TabularEditor3.exe
+                            $tabularEditorPath = "$SoftwareDir\TabularEditor3.exe"
+                            if (Test-Path $tabularEditorPath) {
+                                Write-Host "Tabular Editor installed successfully."
+                            } else {
+                                Write-Host "Tabular Editor installation failed."
                                 exit 1
                             }
-                            
-                            # Update PATH environment variable with MySQL bin folder if not already present
-                            if ($newPath -notlike "*$SoftwareDir\bin*") {
-                                [System.Environment]::SetEnvironmentVariable("PATH", "$newPath;$SoftwareDir\bin", [System.EnvironmentVariableTarget]::Machine)
-                                Write-Host "Updated PATH environment variable with: $SoftwareDir\bin"
-                            } else {
-                                Write-Host "MySQL path already exists in the PATH environment variable."
+                        }
+                        "mysql" {
+                            # Define variables
+                            $mysqlInstallerURL = "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.msi"
+                            $outFile = Join-Path $SoftwareDir "mysql-installer.msi"
+                            $logFile = Join-Path $SoftwareDir "install.log"
+
+                            # Ensure the directory is clean
+                            if (Test-Path $SoftwareDir) {
+                                Remove-Item -Recurse -Force $SoftwareDir
+                                Write-Host "Removing existing MySQL directory..."
+                            }
+                            New-Item -Path $SoftwareDir -ItemType Directory | Out-Null
+
+                            # Download MySQL installer
+                            Invoke-WebRequest -Uri $mysqlInstallerURL -OutFile $outFile -Credential $credObject
+                            Write-Host "Downloaded MySQL installer to: $outFile"
+
+                            # Install MySQL using msiexec directly
+                            try {
+                                # Using msiexec directly in PowerShell
+                                $msiExecCmd = "msiexec /i `"$outFile`" /qn /lv `"$logFile`" INSTALLDIR=`"$SoftwareDir`""
+                                Write-Host "Running command: $msiExecCmd"
+                                iex $msiExecCmd  # Executes the msiexec command
+                                Write-Host "MySQL installation completed. Log saved at: $logFile"
+                            } catch {
+                                Write-Host "MySQL installation failed. Please check the installer, paths, and log file."
+                                exit 1
                             }
 
-                            # Verify MySQL installation
-                            $mysqlVersion = & "$SoftwareDir\bin\mysql.exe" --version 2>&1
-                            Write-Host "MySQL version: $mysqlVersion"
+                            # Verify installation
+                            $mysqlExePath = Join-Path $SoftwareDir "bin\mysql.exe"
+                            if (Test-Path $mysqlExePath) {
+                                Write-Host "MySQL installed successfully. Verifying version..."
+                                & "$mysqlExePath" --version
+                            } else {
+                                Write-Host "MySQL installation failed. Check the MSI installer and environment."
+                                exit 1
+                            }
+
+                            # Adding MySQL bin to PATH if not already added
+                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
+                            $binPath = Join-Path $SoftwareDir "bin"
+                            if ($currentPath -notlike "*$binPath*") {
+                                [System.Environment]::SetEnvironmentVariable("PATH", "$currentPath;$binPath", [System.EnvironmentVariableTarget]::Machine)
+                                Write-Host "MySQL bin path added to system PATH"
+                            } else {
+                                Write-Host "MySQL bin path already exists in the system PATH."
+                            }
+                        }
+                        "kubectl" {
+                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
+                            $kubectlPattern = "C:\cicd-tools\kubectl\*"
+                            $pathList = $currentPath.Split(';')
+                            $newPathList = $pathList | Where-Object { $_ -notlike $kubectlPattern }
+                            $newPath = [string]::Join(';', $newPathList)
+
+                            # Remove old kubectl paths from PATH
+                            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
+                            Write-Host "Old kubectl paths removed from PATH."
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.exe" -OutFile $outFile -Credential $credObject
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
+                            Write-Host "Verifying kubectl installation..."
+                            try {
+                                kubectl version --client
+                            } catch {
+                                Write-Host "kubectl is not installed correctly. Please check the environment variables and paths."
+                                exit 1
+                            }
+                            Write-Host "kubectl installed successfully!"
                         }
                     }
