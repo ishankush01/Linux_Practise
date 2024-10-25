@@ -592,4 +592,25 @@ stages:
                             Start-Sleep -Seconds 35
                             Write-Host "Firefox installation completed successfully."
                         }
+                        "MySQL" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip" -Credential $credObject
+                            Write-Host "Download firefox file to: $SoftwareDir\$AvailableSoftware.zip"
+                            $binPath = Join-Path $SoftwareDir "bin"
+                            Write-Host "Extracting MySQL files..."
+                            Expand-Archive -Path "$SoftwareDir/$AvailableSoftware.zip" -DestinationPath $SoftwareDir -Force
+                            Remove-Item -Path "$SoftwareDir\$AvailableSoftware.zip" -Force
+                            Write-Host "Adding MySQL to system PATH..."
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$binPath", [System.EnvironmentVariableTarget]::Machine)
+
+                            # Set TLS1.2 for secure download
+                            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+                            $vcredistUri = "http://download.microsoft.com/download/0/5/6/056dcda9-d667-4e27-8001-8a0c6971d6b1/vcredist_x64.exe"
+                            $vcredistPath = Join-Path $SoftwareDir "vcredist_x64.exe"
+                            Write-Host "Downloading Visual C++ Redistributable..."
+                            Invoke-WebRequest -Uri $vcredistUri -OutFile $vcredistPath -UseBasicParsing
+                            # Install vcredist_x64.exe silently
+                            Write-Host "Installing Visual C++ Redistributable..."
+                            Start-Process -FilePath $vcredistPath -ArgumentList "/install", "/quiet", "/norestart" -Wait
+                            Write-Host "MySQL installation completed successfully."
+                        }
                     }
