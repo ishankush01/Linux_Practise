@@ -1,0 +1,611 @@
+trigger: none
+parameters:
+  - name: AgentPool
+    displayName: Select Agent pool
+    type: string
+    values:
+      - Linux_Self_Hosted_Agent
+  - name: 'Test Agent'
+    displayName: Select Test Agent
+    type: string
+    values:
+      - Linux_Self_Hosted_Agent
+      - ishan-test-vm-windows
+      - ishan-test-vm-w
+      - ishan-test-vm-windows1
+
+  - name: AvilableSoftware
+    displayName: Select Avilable Software with version
+    type: string
+    default: none
+    values:
+        - none
+        - git-2.27.0
+        - git-2.45.0
+        - git-2.46.0
+        - helm-3.10.2
+        - helm-3.11.0
+        - helm-3.16.0
+        - git-lfs-2.10.0
+        - maven-3.6.3
+        - maven-3.8.6
+        - maven-3.9.6
+        - apache-maven-3.8.8
+        - apache-maven-3.9.9
+        - python-3.10.12
+        - python-3.12.5
+        - python-3.12.7
+        - python-3.11.4
+        - python-3.11.9
+        - python-3.13.0
+        - jdk-11.0.22
+        - jdk-11.0.23
+        - jdk-17.0.12
+        - jdk-21.0.4
+        - apache-ant-1.10.14
+        - apache-ant-1.10.15
+        - gradle-7.5.1
+        - gradle-8.10
+        - bicep-0.29.47
+        - bicep-0.30.23
+        - bicep-0.30.3
+        - dotnet-6.0.425
+        - dotnet-6.0.427
+        - dotnet-8.0.402
+        - powershell-7.2.23
+        - powershell-7.4.5
+        - node-21.7.3
+        - node-22.9.0
+        - chrome-0.0.1
+        - firefox-0.0.1
+        - azure-cli-2.65.0
+        - azure-cli-2.64.0
+        - mysql-8.0.40
+        - tabulareditor-3.17.1
+        - tabulareditor-2.20.2
+        - kubectl-1.31.2
+        
+  - name: SoftwareName
+    displayName: Software Name
+    type: string
+    default: none
+    values:
+        - none
+        - git
+        - helm
+        - python
+        - git-lfs
+        - maven
+        - python
+        - jdk
+        - ant
+        - gradle
+        - bicep
+        - dotnet
+        - pwsh
+        - node
+        - chrome
+        - firefox
+        - azure-cli
+        - mysql
+        - tabulareditor
+        - kubectl
+
+  - name: SoftwareVersion
+    displayName: Software Version
+    type: string
+    default: none
+    values:
+        - none
+        - 2.27.0
+        - 2.45.0
+        - 2.46.0
+        - 3.10.2
+        - 3.11.0
+        - 3.16.0
+        - 2.10.0
+        - 3.6.3
+        - 3.8.8
+        - 3.9.9
+        - 3.10.12
+        - 3.12.5
+        - 3.12.7
+        - 3.11.4
+        - 3.11.9
+        - 3.13.0
+        - 11.0.22
+        - 11.0.23
+        - 1.8.0_391
+        - 11.0.12
+        - 17.0.12
+        - 21.0.4
+        - 1.10.14
+        - 1.10.15
+        - 7.5.1
+        - 8.10
+        - 0.29.47
+        - 0.30.23
+        - 0.30.3
+        - 6.0.425
+        - 6.0.427
+        - 8.0.402
+        - 7.2.23
+        - 7.4.5
+        - 21.7.3
+        - 22.9.0
+        - 2.65.0
+        - 2.64.0
+        - 0.0.1
+        - 8.0.40
+        - 3.17.1
+        - 2.20.2
+        - 1.31.2
+
+  - name: artifactoryURL
+    type: string
+    default: https://trialx4qamp.jfrog.io/artifactory
+
+stages:
+  - stage: InstallSoftware
+    displayName: Install Software
+    pool:
+      name: ${{ parameters.AgentPool }}
+      demands:
+            - ${{ if eq(parameters.AgentPool, 'Test Agent') }}:
+                - Agent.ComputerName -equals ${{ parameters['Test Agent'] }}
+    jobs:
+      - job: InstallSoftware
+        workspace:
+          clean: all
+        steps:
+          - task: Bash@3
+            displayName: Install ${{ parameters.SoftwareName }} on Linux
+            condition: eq(variables['Agent.OS'], 'Linux')
+            inputs:
+              targetType: inline
+              script: |
+                  set -ax
+                  if [ -d "/opt/cicd-tools/${{ parameters.SoftwareName }}/${{ parameters.SoftwareVersion }}" ]; then
+                    sudo rm -rf /opt/cicd-tools/${{ parameters.SoftwareName }}/${{ parameters.SoftwareVersion }}
+                  fi
+                  echo "#============#"
+                  echo "# Install software  #"
+                  echo "#==============#"
+                  sudo mkdir -p /opt/cicd-tools/${{ parameters.SoftwareName }}/${{ parameters.SoftwareVersion }}
+                  # sudo chown -R adocicdrsvc:azr_pas_p_ADO_CICD_Devops /opt/cicd-tools/${{ parameters.SoftwareName }}/${{ parameters.SoftwareVersion }}
+                  cd /opt/cicd-tools/${{ parameters.SoftwareName }}/${{ parameters.SoftwareVersion }}
+                  sudo curl -u email:xxxxx -O ${{ parameters.artifactoryURL }}/ishankey-local-test/${{ parameters.SoftwareName }}/linux/${{ parameters.AvilableSoftware }}.tar.gz #>> /dev/null 2>&1
+                  echo downloading ${{ parameters.AvilableSoftware }}
+                  ls -lart
+                  sudo tar -zxf ${{ parameters.AvilableSoftware }}.tar.gz
+                  #sudo tar -zxf ${{ parameters.AvilableSoftware }}.tar
+                  ls -lart
+                  sudo rm -rf ${{ parameters.AvilableSoftware }}.tar.gz
+                  ls -lart
+                  pwd
+                  echo "#=====================#"
+                  echo "# Verify software version.  #"
+                  echo "#=====================#"
+                  # Update PATH to prioritize the new version
+                  #export PATH=/opt/cicd-tools/${{ parameters.SoftwareName }}/${{ parameters.SoftwareVersion }}/bin:$PATH
+                  # Get the software name from the parameter
+                  # Set the software name from the pipeline parameters
+                  Software="${{ parameters.SoftwareName }}"
+                  hostname
+
+                  # Determine the correct version command based on the software
+                  case "$Software" in
+                      java)
+                          # Java uses `-version` and captures only the first line
+                          version=$(java -version 2>&1 | head -n 1)
+                          ;;
+                      
+                      maven)
+                          # Maven uses `-v`
+                          export M2_HOME=/opt/cicd-tools/${{ parameters.SoftwareName }}/${{ parameters.SoftwareVersion }}/${{ parameters.AvilableSoftware }}
+                          export PATH=$M2_HOME/bin:$PATH
+                          version=$(mvn -v 2>&1)
+                          ;;
+                      
+                      # python3)
+                      #     # Python 3 uses `--version`
+                      #     version=$(python3 --version 2>&1)
+                      #     ;;
+                      
+                      python)
+                          # Python 2 uses `--version`
+                          version=$(python3 --version 2>&1)
+                          ;;
+                      
+                      helm)
+                          # Optionally move the helm binary if needed
+                          sudo mv /opt/cicd-tools/helm/3.10.2/helm /usr/local/bin &> /dev/null
+                          chmod +x helm
+                          # Helm uses `version --short`
+                          version=$(helm version --short 2>&1)
+                          ;;
+                      
+                      kubectl)
+                          # kubectl uses `version --client --short`
+                          version=$(kubectl version --client --short 2>&1)
+                          ;;
+                      
+                      git)
+                          # Git uses `--version`
+                          sudo yum groupinstall "Development Tools" -y
+                          sudo yum remove git -y
+                          cd ${{ parameters.AvilableSoftware }}
+                          sudo make prefix=/usr/local all install
+                          git --version
+                          ;;
+                      
+                      git-lfs)
+                          # Git-lfs uses `--version`
+                          version=$(git lfs --version 2>&1)
+                          ;;
+
+                      apache-ant)
+                          # apache-ant uses `--version`
+                          if [ -d "/usr/local/ant" ]; then
+                              echo "Removing old ant version at /usr/local/ant"
+                              sudo rm -rf /usr/local/ant
+                          fi 
+                          sudo mv ${{ parameters.AvilableSoftware }} /usr/local/ant/
+                          export ANT_HOME=/usr/local/ant
+                          echo $ANT_HOME
+                          export PATH=$ANT_HOME/bin:$PATH
+                          echo 'export PATH=$ANT_HOME/bin:$PATH'
+                          version=$(ant -version 2>&1)
+                          ;;
+
+                      gradle)
+                          #gradle uses `--version`
+                          export GRADLE_HOME=/opt/cicd-tools/${{ parameters.SoftwareName }}/${{ parameters.SoftwareVersion }}/${{ parameters.AvilableSoftware }}-bin/${{ parameters.AvilableSoftware }}
+                          echo $GRADLE_HOME
+                          export PATH=$PATH:$GRADLE_HOME/bin
+                          echo 'export PATH=$PATH:$GRADLE_HOME/bin' >> ~/.bashrc
+                          source ~/.bashrc
+                          echo $PATH
+                          version=$(gradle -version 2>&1)
+                          gradle --version;
+                          ;;
+                      bicep)
+                          # bicep `--version`
+                          sudo mv ${{ parameters.AvilableSoftware }} /usr/local/bin/bicep
+                          sudo chmod +x /usr/local/bin/bicep
+                          version=$(bicep --version 2>&1)
+                          ;;
+                      node)
+                          # node `-v`
+                          
+                          version=$(node -v 2>&1)
+                          ;;
+                      dotnet)
+                          # Dotnet uses `--version`
+                          cd ..
+                          sudo rm -rf ${{ parameters.SoftwareVersion }}
+                          sudo curl -u email:xxxx -O ${{ parameters.artifactoryURL }}/ishankey-local-test/${{ parameters.SoftwareName }}/linux/${{ parameters.AvilableSoftware }}.tar.gz #>> /dev/null 2>&1
+                          echo downloading ${{ parameters.AvilableSoftware }}
+                          ls -lart
+                          if [ -d "/usr/local/share/dotnet" ]; then
+                              echo "Removing old .NET version at /usr/local/share/dotnet"
+                              sudo rm -rf /usr/local/share/dotnet
+                          fi
+                          sudo mkdir -p /usr/local/share/dotnet  
+                          sudo tar -zxf ${{ parameters.AvilableSoftware }}.tar.gz -C /usr/local/share/dotnet
+                          sudo rm -rf ${{ parameters.AvilableSoftware }}.tar.gz
+                          export DOTNET_ROOT=/usr/local/share/dotnet
+                          export PATH=$PATH:/usr/local/share/dotnet
+                          version=$(dotnet --version 2>&1)
+                          ;;
+                      jdk)
+                          # java `-version`
+                          cd ..
+                          sudo rm -rf ${{ parameters.SoftwareVersion }}
+                          sudo curl -u email:xxxx -O ${{ parameters.artifactoryURL }}/ishankey-local-test/${{ parameters.SoftwareName }}/linux/${{ parameters.AvilableSoftware }}.tar.gz 
+                          if [ -d "/usr/local/java" ]; then
+                              echo "Removing old java version at /usr/local/java"
+                              sudo rm -rf /usr/local/java
+                          fi
+                          sudo mkdir -p /usr/local/java
+                          sudo tar -xvzf ${{ parameters.AvilableSoftware }}.tar.gz -C /usr/local/java
+                          sudo rm -rf ${{ parameters.AvilableSoftware }}.tar.gz
+                          if grep -q "export JAVA_HOME=" /etc/profile; then
+                              echo "Removing existing JAVA_HOME entry from /etc/profile..."
+                              sudo sed -i '/export JAVA_HOME=/d' /etc/profile
+                          fi
+                          if grep -q "export PATH=.*\$JAVA_HOME/bin" /etc/profile; then
+                              echo "Removing existing PATH entry related to JAVA_HOME from /etc/profile..."
+                              sudo sed -i '/export PATH=.*JAVA_HOME\/bin/d' /etc/profile
+                          fi
+                          # Add the new JDK version
+                          if ! grep -q "export JAVA_HOME=/usr/local/java/${{ parameters.AvilableSoftware }}" /etc/profile; then
+                              echo "Setting new JAVA_HOME and PATH for JDK version ${{ parameters.AvilableSoftware }}..."
+                              echo "export JAVA_HOME=/usr/local/java/${{ parameters.AvilableSoftware }}" | sudo tee -a /etc/profile
+                              echo 'export PATH=$PATH:$JAVA_HOME/bin' | sudo tee -a /etc/profile
+                          fi
+                          # Apply changes
+                          source /etc/profile
+                          source ~/.bashrc
+                          version=$(java -version 2>&1)
+                          ;;
+
+                      pwsh)
+                          # PowerShell uses `--version`
+                          cd ..
+                          sudo rm -rf ${{ parameters.SoftwareVersion }}
+                          sudo curl -u email:xxxx -O ${{ parameters.artifactoryURL }}/ishankey-local-test/${{ parameters.SoftwareName }}/linux/${{ parameters.AvilableSoftware }}.tar.gz #>> /dev/null 2>&1
+                          echo downloading ${{ parameters.AvilableSoftware }}
+                          ls -lart
+                          sudo mkdir -p /opt/microsoft/powershell/7
+                          sudo tar -zxf ${{ parameters.AvilableSoftware }}.tar.gz -C /opt/microsoft/powershell/7
+                          sudo rm -rf ${{ parameters.AvilableSoftware }}.tar.gz
+                          ls -lart
+                          sudo chmod +x /opt/microsoft/powershell/7/pwsh
+                          if [ -L /usr/bin/pwsh ] || [ -e /usr/bin/pwsh ]; then
+                              sudo rm -f /usr/bin/pwsh
+                          fi
+                          sudo ln -s /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh
+                          version=$(pwsh --version 2>&1)
+                          ;;
+                      *)
+                          echo "Unknown software: $Software"
+                          exit 1
+                          ;;
+                  esac
+                  
+                  echo "$Software version: $version"
+                      
+                      echo ""  # Add an empty line between sections
+                  #done
+                  
+          - task: PowerShell@2
+            displayName: Install ${{ parameters.SoftwareName }} on Windows
+            condition: eq(variables['Agent.OS'], 'Windows_NT')
+            inputs:
+                targetType: inline
+                script: |
+                    $ErrorActionPreference = "Stop"
+                    $Software = "${{ parameters.SoftwareName }}"
+                    $AvailableSoftware = "${{ parameters.AvilableSoftware }}"
+                    $SoftwareVersion = "${{ parameters.SoftwareVersion }}"
+                    $artifactoryURL = "${{ parameters.artifactoryURL }}"
+                    $SoftwareDir = "C:\cicd-tools\${{ parameters.SoftwareName }}\$SoftwareVersion"
+                    if (Test-Path $SoftwareDir) {
+                      Write-Host "Removing existing ${{ parameters.SoftwareName }} directory..."
+                      Remove-Item -Recurse -Force $SoftwareDir
+                    }
+                    New-Item -ItemType Directory -Path $SoftwareDir -Force | Out-Null
+
+                    Write-Host "Removing existing environment variable from system PATH."
+                    $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
+                    $SoftwarePattern = "C:\cicd-tools\Software\*"
+                    $pathList = $currentPath.Split(';')
+                    $newPathList = $pathList | Where-Object { $_ -notlike $SoftwarePattern }
+                    $newPath = [string]::Join(';', $newPathList)
+                    [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
+                    
+                    switch ($Software) {
+                        "git" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-build-agent-local/$Software/windows/$AvailableSoftware/Git.exe" -OutFile "$SoftwareDir\git.exe"
+                            Start-Process -FilePath "$SoftwareDir\git.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=$gitPath" -Wait
+                            $gitVersion = & "$SoftwareDir\git.exe" --version 2>&1
+                            Write-Host "Git version: $gitVersion"
+                            [System.Environment]::SetEnvironmentVariable("PATH", "$newPath;$SoftwareDir\cmd", [System.EnvironmentVariableTarget]::User)
+                            Write-Host "Updated PATH environment variable with: $SoftwareDir\cmd"
+                        }
+                        "helm" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-build-agent-local/$Software/windows/$AvailableSoftware/helm.exe" -OutFile "$SoftwareDir\helm.exe"
+                            [System.Environment]::SetEnvironmentVariable("PATH", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
+                            Write-Host "Updated PATH environment variable with: $SoftwareDir"
+                            $helmVersion = & "$SoftwareDir\helm.exe" version --short 2>&1
+                            Write-Host "Helm version: $helmVersion"
+                        }
+                        "node" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-build-agent-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\node.zip"
+                            Add-Type -AssemblyName System.IO.Compression.FileSystem
+                            [System.IO.Compression.ZipFile]::ExtractToDirectory("$SoftwareDir\node.zip", $SoftwareDir)
+                            $extractedFolders = Get-ChildItem -Path $SoftwareDir -Directory
+                            if ($extractedFolders.Count -eq 1) {
+                                $subfolder = $extractedFolders.FullName
+                                Write-Host "Moving content from subfolder: $subfolder"
+                                Move-Item "$subfolder\*" $SoftwareDir -Force
+                                Remove-Item -Recurse -Force $subfolder
+                            } elseif ($extractedFolders.Count -eq 0) {
+                                Write-Error "No subfolder or files were extracted!"
+                                exit 1
+                            }
+
+                            if (-not (Test-Path "$SoftwareDir\node.exe")) {
+                                Write-Error "Node.js installation failed: node.exe not found!"
+                                exit 1
+                            }
+                            [System.Environment]::SetEnvironmentVariable("PATH", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
+                            Write-Host "Updated PATH environment variable with: $SoftwareDir"
+                            $nodeVersion = & "$SoftwareDir\node.exe" --version 2>&1
+                            Write-Host "Node.js version: $nodeVersion"
+                        }
+                        "bicep" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-build-agent-local/$Software/windows/$AvailableSoftware.exe" -OutFile "$SoftwareDir\bicep.exe"
+                            if (-not (Test-Path "$SoftwareDir\bicep.exe")) {
+                                Write-Error "Bicep installation failed: bicep.exe not found!"
+                                exit 1
+                            }
+                            [System.Environment]::SetEnvironmentVariable("PATH", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
+                            Write-Host "Updated PATH environment variable with: $SoftwareDir"
+                        }
+                        "jdk" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-build-agent-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip"
+                            Write-Host "Extracting JDK ZIP to: $SoftwareDir"
+                            Expand-Archive -LiteralPath $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir -Force
+                            Remove-Item $outFile
+                            if (-Not (Test-Path "$SoftwareDir\$AvailableSoftware\bin\java.exe")) {
+                                Write-Host "Extraction failed. Ensure the ZIP file contains the JDK binaries."
+                                exit 1
+                            }
+                            $java_path = Join-Path $SoftwareDir "$AvailableSoftware"
+                            Write-Host "Setting JAVA_HOME to: $SoftwareDir"
+                            [System.Environment]::SetEnvironmentVariable('JAVA_HOME_21_X64', $java_path, [System.EnvironmentVariableTarget]::Machine)
+                            $binPath = Join-Path $java_path "bin"
+                            Write-Host "Adding JDK bin to system PATH"
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$java_path;$binPath", [System.EnvironmentVariableTarget]::Machine)
+
+                            Write-Host "Verifying Java installation..."
+                            try {
+                                java -version
+                            } catch {
+                                Write-Host "Java is not installed correctly. Please check the environment variables and paths."
+                            }
+                        }
+                        "maven" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-build-agent-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip"
+                            Write-Host "Extracting maven ZIP to: $SoftwareDir\$AvailableSoftware.zip"
+                            Expand-Archive -LiteralPath $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir -Force
+                            Remove-Item $outFile
+                            if (-Not (Test-Path "$SoftwareDir\$AvailableSoftware\bin\mvn.cmd")) {
+                                Write-Host "Extraction failed. Ensure the ZIP file contains the Maven binaries."
+                                exit 1
+                            }
+                            $maven_path = Join-Path $SoftwareDir "$AvailableSoftware"
+                            Write-Host "Setting M2_HOME to: $maven_path"
+                            [System.Environment]::SetEnvironmentVariable('M2_HOME', $maven_path, [System.EnvironmentVariableTarget]::Machine)
+                            $binPath = Join-Path $maven_path "bin"
+                            Write-Host "Adding Maven bin to system PATH"
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$maven_path;$binPath", [System.EnvironmentVariableTarget]::Machine)
+                            Write-Host "Maven is install Successfully..."
+                        }
+                        "python" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-build-agent-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip"
+                            Write-Host "Extracting Python embeddable package to: $SoftwareDir"
+                            Expand-Archive -Path $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir -Force
+                            Remove-Item $SoftwareDir\$AvailableSoftware.zip -Force
+
+                            Write-Host "Setting PYTHON_HOME to: $SoftwareDir"
+                            [System.Environment]::SetEnvironmentVariable('PYTHON_HOME', $SoftwareDir, [System.EnvironmentVariableTarget]::Machine)
+                            $binPath = Join-Path $SoftwareDir "python.exe"
+                            Write-Host "Adding Python to system PATH"
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$binPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
+                            Write-Host "Verifying Python installation..."
+                            try {
+                                python --version
+                            } catch {
+                                Write-Host "Python is not installed correctly. Please check the environment variables and paths."
+                            }
+                            Write-Host "Python installation and configuration via embeddable package completed."
+                        }
+                        "ant" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-build-agent-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip"
+                            Write-Host "Download Ant file to: $SoftwareDir\$AvailableSoftware.zip"
+                            Expand-Archive -Path $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir
+                            Remove-Item $SoftwareDir\$AvailableSoftware.zip
+
+                            $ant_path = Join-Path $SoftwareDir "$AvailableSoftware"
+                            [System.Environment]::SetEnvironmentVariable('ANT_HOME', $ant_path, [System.EnvironmentVariableTarget]::Machine)
+                            $binPath = Join-Path $ant_path "bin"
+                            Write-Host "Adding Ant bin to system PATH"
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$ant_path;$binPath", [System.EnvironmentVariableTarget]::Machine)
+                            Write-Host "ant is install Successfully..."
+                        }
+                        "dotnet" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-build-agent-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip"
+                            Write-Host "Download dotnet file to: $SoftwareDir\$AvailableSoftware.zip"
+                            Expand-Archive -Path $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir -Force
+                            Remove-Item $SoftwareDir\$AvailableSoftware.zip -Force
+
+                            Write-Host "Setting DOTNET_HOME to: $SoftwareDir"
+                            [System.Environment]::SetEnvironmentVariable('DOTNET_HOME', $SoftwareDir, [System.EnvironmentVariableTarget]::Machine)
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
+                            Write-Host "Verifying .NET SDK installation..."
+                            try {
+                                dotnet --version
+                            } catch {
+                                Write-Host ".NET SDK is not installed correctly. Please check the environment variables and paths."
+                            }
+                            Write-Host ".NET SDK installation and configuration completed."
+                        }
+                        "azure-cli" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-build-agent-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip"
+                            Write-Host "Download azure-cli file to: $SoftwareDir\$AvailableSoftware.zip"
+                            Expand-Archive -Path $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir
+                            Remove-Item $SoftwareDir\$AvailableSoftware.zip
+
+                            Write-Host "Add azure-cli to system PATH"
+                            $binPath = Join-Path $SoftwareDir "bin"
+                            Write-Host "Adding azure-cli bin to system PATH"
+                            [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$SoftwareDir;$binPath", [System.EnvironmentVariableTarget]::Machine)
+                            Write-Host "azure-cli is install Successfully..."
+                        }
+                        "tabularEditor" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-build-agent-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip"
+                            Write-Host "Download tabularEditor file to: $SoftwareDir\$AvailableSoftware.zip" -Force
+                            Expand-Archive -Path $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir
+                            Remove-Item $SoftwareDir\$AvailableSoftware.zip
+
+                            [System.Environment]::SetEnvironmentVariable("PATH", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
+                            $tabularEditorPath = "$SoftwareDir\TabularEditor.exe"
+                            if (Test-Path $tabularEditorPath) {
+                                Write-Host "Tabular Editor installed successfully."
+                            } else {
+                                Write-Host "Tabular Editor installation failed."
+                                exit 1
+                            }
+                        }
+                        "kubectl" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-build-agent-local/$Software/windows/$AvailableSoftware.exe" -OutFile $SoftwareDir\$AvailableSoftware.exe -Credential $credObject
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
+                            Write-Host "Verifying kubectl installation..."
+                            try {
+                                kubectl version --client
+                            } catch {
+                                Write-Host "kubectl is not installed correctly. Please check the environment variables and paths."
+                                exit 1
+                            }
+                            Write-Host "kubectl installed successfully!"
+                        }
+                        "chrome" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-build-agent-local/$Software/windows/$AvailableSoftware.exe" -OutFile "$SoftwareDir\chrome_installer.exe"
+                            Write-Host "Installing Google Chrome silently..."
+                            Start-Process -FilePath $SoftwareDir\chrome_installer.exe -ArgumentList "/silent", "/install" -Wait
+                            Write-Host "Verify installation"
+                            $chromePath = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+                            if (Test-Path $chromePath) {
+                                Write-Host "Google Chrome installation completed successfully!"
+                                $chromeVersion = (Get-Item $chromePath).VersionInfo.ProductVersion
+                                Write-Host "Installed Chrome version: $chromeVersion"
+                            } else {
+                                Write-Host "Google Chrome installation failed."
+                                exit 1
+                            }
+                            Write-Host "Google Chrome installation completed."
+                        }
+                        "firefox" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-build-agent-local/$Software/windows/$AvailableSoftware.exe" -OutFile "$SoftwareDir\firefox.exe"
+                            Write-Host "Download firefox file to: $SoftwareDir\firefox.exe"
+                            Write-Host "Installing Firefox silently..."
+                            Start-Process -FilePath "$outFile" -ArgumentList "/S" -Wait
+                            Write-Host "Waiting for the installation to complete..."
+                            Start-Sleep -Seconds 35
+                            Write-Host "Firefox installation completed successfully."
+                        }
+                        "MySQL" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-build-agent-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip"
+                            Write-Host "Download firefox file to: $SoftwareDir\$AvailableSoftware.zip"
+                            $binPath = Join-Path $SoftwareDir "bin"
+                            Write-Host "Extracting MySQL files..."
+                            Expand-Archive -Path "$SoftwareDir/$AvailableSoftware.zip" -DestinationPath $SoftwareDir -Force
+                            Remove-Item -Path "$SoftwareDir\$AvailableSoftware.zip" -Force
+                            Write-Host "Adding MySQL to system PATH..."
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$binPath", [System.EnvironmentVariableTarget]::Machine)
+
+                            # Set TLS1.2 for secure download
+                            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+                            $vcredistUri = "http://download.microsoft.com/download/0/5/6/056dcda9-d667-4e27-8001-8a0c6971d6b1/vcredist_x64.exe"
+                            $vcredistPath = Join-Path $SoftwareDir "vcredist_x64.exe"
+                            Write-Host "Downloading Visual C++ Redistributable..."
+                            Invoke-WebRequest -Uri $vcredistUri -OutFile $vcredistPath -UseBasicParsing
+                            # Install vcredist_x64.exe silently
+                            Write-Host "Installing Visual C++ Redistributable..."
+                            Start-Process -FilePath $vcredistPath -ArgumentList "/install", "/quiet", "/norestart" -Wait
+                            Write-Host "MySQL installation completed successfully."
+                        }
+                    }
