@@ -381,68 +381,34 @@ stages:
                     $password = 'xxxxxxxxx'
                     $secPassword = ConvertTo-SecureString $password -AsPlainText -Force
                     $credObject = New-Object System.Management.Automation.PSCredential ($username, $secPassword)
+
+                    Write-Host "Removing existing environment variable from system PATH."
+                    $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
+                    $SoftwarePattern = "C:\cicd-tools\Software\*"
+                    $pathList = $currentPath.Split(';')
+                    $newPathList = $pathList | Where-Object { $_ -notlike $SoftwarePattern }
+                    $newPath = [string]::Join(';', $newPathList)
+                    [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
                     
                     switch ($Software) {
                         "git" {
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
-                            $gitPattern = "C:\cicd-tools\git\*"
-                            $pathList = $currentPath.Split(';')
-                            $newPathList = $pathList | Where-Object { $_ -notlike $gitPattern }
-                            $newPath = [string]::Join(';', $newPathList)
-
-                            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
-                            Write-Host "Old Git paths removed from PATH."
-
                             Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware/Git.exe" -OutFile "$SoftwareDir\git.exe" -Credential $credObject
                             Start-Process -FilePath "$SoftwareDir\git.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=$gitPath" -Wait
-
                             $gitVersion = & "$SoftwareDir\git.exe" --version 2>&1
                             Write-Host "Git version: $gitVersion"
-
-                            if ($newPath -notlike "*$SoftwareDir\cmd*") {
-                                [System.Environment]::SetEnvironmentVariable("PATH", "$newPath;$SoftwareDir\cmd", [System.EnvironmentVariableTarget]::User)
-                                Write-Host "Updated PATH environment variable with: $SoftwareDir\cmd"
-                            } else {
-                                Write-Host "Git path already exists in the PATH environment variable."
-                            }
+                            [System.Environment]::SetEnvironmentVariable("PATH", "$newPath;$SoftwareDir\cmd", [System.EnvironmentVariableTarget]::User)
+                            Write-Host "Updated PATH environment variable with: $SoftwareDir\cmd"
                         }
                         "helm" {
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
-                            $helmPattern = "C:\cicd-tools\helm\*"
-                            $pathList = $currentPath.Split(';')
-                            $newPathList = $pathList | Where-Object { $_ -notlike $helmPattern }
-                            $newPath = [string]::Join(';', $newPathList)
-
-                            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
-                            Write-Host "Old Helm paths removed from PATH."
-
                             Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware/helm.exe" -OutFile "$SoftwareDir\helm.exe" -Credential $credObject
-
-                            # Append the new helmPath to the PATH environment variable if not already present
-                            if ($newPath -notlike "*$SoftwareDir*") {
-                                [System.Environment]::SetEnvironmentVariable("PATH", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
-                                Write-Host "Updated PATH environment variable with: $SoftwareDir"
-                            } else {
-                                Write-Host "Helm path already exists in the PATH environment variable."
-                            }
-
+                            [System.Environment]::SetEnvironmentVariable("PATH", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
+                            Write-Host "Updated PATH environment variable with: $SoftwareDir"
                             $helmVersion = & "$SoftwareDir\helm.exe" version --short 2>&1
                             Write-Host "Helm version: $helmVersion"
                         }
                         "node" {
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
-                            $nodePattern = "C:\cicd-tools\node\*"
-                            $pathList = $currentPath.Split(';')
-                            $newPathList = $pathList | Where-Object { $_ -notlike $nodePattern }
-                            $newPath = [string]::Join(';', $newPathList)
-
-                            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
-                            Write-Host "Old Node.js paths removed from PATH."
-
                             Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\node.zip" -Credential $credObject
-
                             Add-Type -AssemblyName System.IO.Compression.FileSystem
-
                             [System.IO.Compression.ZipFile]::ExtractToDirectory("$SoftwareDir\node.zip", $SoftwareDir)
                             $extractedFolders = Get-ChildItem -Path $SoftwareDir -Directory
                             if ($extractedFolders.Count -eq 1) {
@@ -459,73 +425,36 @@ stages:
                                 Write-Error "Node.js installation failed: node.exe not found!"
                                 exit 1
                             }
-                            if ($newPath -notlike "*$SoftwareDir*") {
-                                [System.Environment]::SetEnvironmentVariable("PATH", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
-                                Write-Host "Updated PATH environment variable with: $SoftwareDir"
-                            } else {
-                                Write-Host "Node.js path already exists in the PATH environment variable."
-                            }
+                            [System.Environment]::SetEnvironmentVariable("PATH", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
+                            Write-Host "Updated PATH environment variable with: $SoftwareDir"
                             $nodeVersion = & "$SoftwareDir\node.exe" --version 2>&1
                             Write-Host "Node.js version: $nodeVersion"
                         }
                         "bicep" {
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
-                            $bicepPattern = "C:\cicd-tools\bicep\*"
-                            $pathList = $currentPath.Split(';')
-                            $newPathList = $pathList | Where-Object { $_ -notlike $bicepPattern }
-                            $newPath = [string]::Join(';', $newPathList)
-
-                            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
-
                             Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.exe" -OutFile "$SoftwareDir\bicep.exe" -Credential $credObject
-
                             if (-not (Test-Path "$SoftwareDir\bicep.exe")) {
                                 Write-Error "Bicep installation failed: bicep.exe not found!"
                                 exit 1
                             }
-
-                            if ($newPath -notlike "*$SoftwareDir*") {
-                                [System.Environment]::SetEnvironmentVariable("PATH", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
-                                Write-Host "Updated PATH environment variable with: $SoftwareDir"
-                            } else {
-                                Write-Host "Bicep path already exists in the PATH environment variable."
-                            }
+                            [System.Environment]::SetEnvironmentVariable("PATH", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
+                            Write-Host "Updated PATH environment variable with: $SoftwareDir"
                         }
                         "jdk" {
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
-                            $javaPattern = "C:\cicd-tools\jdk\*"
-                            $pathList = $currentPath.Split(';')
-                            $newPathList = $pathList | Where-Object { $_ -notlike $javaPattern }
-                            $newPath = [string]::Join(';', $newPathList)
-
-                            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
-
-                            $outFile = Join-Path $SoftwareDir "$AvailableSoftware.zip"
-                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$outFile" -Credential $credObject
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip" -Credential $credObject
                             Write-Host "Extracting JDK ZIP to: $SoftwareDir"
-
-                            Expand-Archive -LiteralPath $outFile -DestinationPath $SoftwareDir -Force
+                            Expand-Archive -LiteralPath $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir -Force
                             Remove-Item $outFile
-
                             if (-Not (Test-Path "$SoftwareDir\$AvailableSoftware\bin\java.exe")) {
                                 Write-Host "Extraction failed. Ensure the ZIP file contains the JDK binaries."
                                 exit 1
                             }
                             $java_path = Join-Path $SoftwareDir "$AvailableSoftware"
-
                             Write-Host "Setting JAVA_HOME to: $SoftwareDir"
                             [System.Environment]::SetEnvironmentVariable('JAVA_HOME_21_X64', $java_path, [System.EnvironmentVariableTarget]::Machine)
-
                             $binPath = Join-Path $java_path "bin"
+                            Write-Host "Adding JDK bin to system PATH"
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$java_path;$binPath", [System.EnvironmentVariableTarget]::Machine)
 
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
-                            if ($currentPath -notlike "*$binPath*") {
-                                Write-Host "Adding JDK bin to system PATH"
-                                [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$java_path;$binPath", [System.EnvironmentVariableTarget]::Machine)
-                            } else {
-                                Write-Host "JDK bin is already in the system PATH"
-                            }
-                            # Verify the installation
                             Write-Host "Verifying Java installation..."
                             try {
                                 java -version
@@ -534,126 +463,63 @@ stages:
                             }
                         }
                         "maven" {
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
-                            $mavenPattern = "C:\cicd-tools\maven\*"
-                            $pathList = $currentPath.Split(';')
-                            $newPathList = $pathList | Where-Object { $_ -notlike $mavenPattern }
-                            $newPath = [string]::Join(';', $newPathList)
-                            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
-                            
-                            $outFile = Join-Path $SoftwareDir "$AvailableSoftware.zip"
-                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$outFile" -Credential $credObject
-                            Write-Host "Extracting maven ZIP to: $outFile"
-                            Expand-Archive -LiteralPath $outFile -DestinationPath $SoftwareDir -Force
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip" -Credential $credObject
+                            Write-Host "Extracting maven ZIP to: $SoftwareDir\$AvailableSoftware.zip"
+                            Expand-Archive -LiteralPath $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir -Force
                             Remove-Item $outFile
                             if (-Not (Test-Path "$SoftwareDir\$AvailableSoftware\bin\mvn.cmd")) {
                                 Write-Host "Extraction failed. Ensure the ZIP file contains the Maven binaries."
                                 exit 1
                             }
-
-                            # Set M2_HOME environment variable
                             $maven_path = Join-Path $SoftwareDir "$AvailableSoftware"
                             Write-Host "Setting M2_HOME to: $maven_path"
                             [System.Environment]::SetEnvironmentVariable('M2_HOME', $maven_path, [System.EnvironmentVariableTarget]::Machine)
                             $binPath = Join-Path $maven_path "bin"
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
-                            if ($currentPath -notlike "*$binPath*") {
-                                Write-Host "Adding Maven bin to system PATH"
-                                [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$maven_path;$binPath", [System.EnvironmentVariableTarget]::Machine)
-                            } else {
-                                Write-Host "Maven bin is already in the system PATH"
-                            }
+                            Write-Host "Adding Maven bin to system PATH"
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$maven_path;$binPath", [System.EnvironmentVariableTarget]::Machine)
                             Write-Host "Maven is install Successfully..."
                         }
                         "python" {
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
-                            $pythonPattern = "C:\cicd-tools\python\*"
-                            $pathList = $currentPath.Split(';')
-                            $newPathList = $pathList | Where-Object { $_ -notlike $pythonPattern }
-                            $newPath = [string]::Join(';', $newPathList)
-                            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
-
-                            $outFile = Join-Path $SoftwareDir "$AvailableSoftware.zip"
-                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$outFile" -Credential $credObject
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip" -Credential $credObject
                             Write-Host "Extracting Python embeddable package to: $SoftwareDir"
-                            Expand-Archive -Path $outFile -DestinationPath $SoftwareDir -Force
+                            Expand-Archive -Path $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir -Force
+                            Remove-Item $SoftwareDir\$AvailableSoftware.zip -Force
 
-                            # Set PYTHON_HOME environment variable
                             Write-Host "Setting PYTHON_HOME to: $SoftwareDir"
                             [System.Environment]::SetEnvironmentVariable('PYTHON_HOME', $SoftwareDir, [System.EnvironmentVariableTarget]::Machine)
                             $binPath = Join-Path $SoftwareDir "python.exe"
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
-
-                            if ($currentPath -notlike "*$SoftwareDir*") {
-                                Write-Host "Adding Python to system PATH"
-                                [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$binPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
-                            } else {
-                                Write-Host "Python is already in the system PATH"
-                            }
-
-                            # Verify the installation
+                            Write-Host "Adding Python to system PATH"
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$binPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
                             Write-Host "Verifying Python installation..."
                             try {
                                 python --version
                             } catch {
                                 Write-Host "Python is not installed correctly. Please check the environment variables and paths."
                             }
-                            # Clean up downloaded ZIP file
-                            Remove-Item $outFile -Force
                             Write-Host "Python installation and configuration via embeddable package completed."
                         }
                         "ant" {
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
-                            $antPattern = "C:\cicd-tools\ant\*"
-                            $pathList = $currentPath.Split(';')
-                            $newPathList = $pathList | Where-Object { $_ -notlike $antPattern }
-                            $newPath = [string]::Join(';', $newPathList)
-                            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
-
-                            $outFile = Join-Path $SoftwareDir "$AvailableSoftware.zip"
-                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$outFile" -Credential $credObject
-                            Write-Host "Download Ant file to: $outFile"
-                            Expand-Archive -Path $outFile -DestinationPath $SoftwareDir
-                            Remove-Item $outFile
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip" -Credential $credObject
+                            Write-Host "Download Ant file to: $SoftwareDir\$AvailableSoftware.zip"
+                            Expand-Archive -Path $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir
+                            Remove-Item $SoftwareDir\$AvailableSoftware.zip
 
                             $ant_path = Join-Path $SoftwareDir "$AvailableSoftware"
                             [System.Environment]::SetEnvironmentVariable('ANT_HOME', $ant_path, [System.EnvironmentVariableTarget]::Machine)
-                            # Add Ant to system PATH
                             $binPath = Join-Path $ant_path "bin"
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
-                            if ($currentPath -notlike "*$binPath*") {
-                                Write-Host "Adding Ant bin to system PATH"
-                                [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$ant_path;$binPath", [System.EnvironmentVariableTarget]::Machine)
-                            } else {
-                                Write-Host "Ant bin is already in the system PATH"
-                            }
+                            Write-Host "Adding Ant bin to system PATH"
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$ant_path;$binPath", [System.EnvironmentVariableTarget]::Machine)
                             Write-Host "ant is install Successfully..."
                         }
                         "dotnet" {
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
-                            $dotnetPattern = "C:\cicd-tools\dotnet\*"
-                            $pathList = $currentPath.Split(';')
-                            $newPathList = $pathList | Where-Object { $_ -notlike $dotnetPattern }
-                            $newPath = [string]::Join(';', $newPathList)
-                            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip" -Credential $credObject
+                            Write-Host "Download dotnet file to: $SoftwareDir\$AvailableSoftware.zip"
+                            Expand-Archive -Path $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir -Force
+                            Remove-Item $SoftwareDir\$AvailableSoftware.zip -Force
 
-                            # Download .NET SDK ZIP package
-                            $outFile = Join-Path $SoftwareDir "$AvailableSoftware.zip"
-                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$outFile" -Credential $credObject
-                            Write-Host "Download dotnet file to: $outFile"
-
-                            # Extract .NET SDK ZIP package
-                            Write-Host "Extracting .NET SDK ZIP to: $SoftwareDir"
-                            Expand-Archive -Path $outFile -DestinationPath $SoftwareDir -Force
-                            Remove-Item $outFile -Force
-
-                            # Set DOTNET_HOME environment variable (optional)
                             Write-Host "Setting DOTNET_HOME to: $SoftwareDir"
                             [System.Environment]::SetEnvironmentVariable('DOTNET_HOME', $SoftwareDir, [System.EnvironmentVariableTarget]::Machine)
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
-                            [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
-
-                            # Verify the installation
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
                             Write-Host "Verifying .NET SDK installation..."
                             try {
                                 dotnet --version
@@ -662,86 +528,25 @@ stages:
                             }
                             Write-Host ".NET SDK installation and configuration completed."
                         }
-                        "chrome" {
-                            $outFile = Join-Path $SoftwareDir "chrome_installer.exe"
-                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.exe" -OutFile "$outFile" -Credential $credObject
-                            Write-Host "Download dotnet file to: $outFile"
-                            Write-Host "Installing Google Chrome silently..."
-                            Start-Process -FilePath $outFile -ArgumentList "/silent", "/install" -Wait
-
-                            # Verify installation
-                            $chromePath = "C:\Program Files\Google\Chrome\Application\chrome.exe"
-                            if (Test-Path $chromePath) {
-                                Write-Host "Google Chrome installation completed successfully!"
-                                # Optionally, you can also check Chrome's version
-                                $chromeVersion = (Get-Item $chromePath).VersionInfo.ProductVersion
-                                Write-Host "Installed Chrome version: $chromeVersion"
-                            } else {
-                                Write-Host "Google Chrome installation failed."
-                                exit 1
-                            }
-                            Write-Host "Google Chrome installation completed."
-                        }
-
-                        "firefox" {
-                            $outFile = Join-Path $SoftwareDir "firefox.exe"
-                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.exe" -OutFile "$outFile" -Credential $credObject
-                            Write-Host "Download dotnet file to: $outFile"
-
-                            # Install Firefox silently
-                            Write-Host "Installing Firefox silently..."
-                            Start-Process -FilePath "$outFile" -ArgumentList "/S" -Wait
-
-                            # Wait for the installation to complete
-                            Write-Host "Waiting for the installation to complete..."
-                            Start-Sleep -Seconds 35
-                            Write-Host "Firefox installation completed successfully."
-                        }
                         "azure-cli" {
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
-                            $azureCliPattern = "C:\cicd-tools\azure-cli\*"
-                            $pathList = $currentPath.Split(';')
-                            $newPathList = $pathList | Where-Object { $_ -notlike $azureCliPattern }
-                            $newPath = [string]::Join(';', $newPathList)
-                            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip" -Credential $credObject
+                            Write-Host "Download azure-cli file to: $SoftwareDir\$AvailableSoftware.zip"
+                            Expand-Archive -Path $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir
+                            Remove-Item $SoftwareDir\$AvailableSoftware.zip
 
-                            $outFile = Join-Path $SoftwareDir "$AvailableSoftware.zip"
-                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$outFile" -Credential $credObject
-                            Write-Host "Download azure-cli file to: $outFile"
-                            Expand-Archive -Path $outFile -DestinationPath $SoftwareDir
-                            Remove-Item $outFile
-
-                            # Add azure-cli to system PATH
+                            Write-Host "Add azure-cli to system PATH"
                             $binPath = Join-Path $SoftwareDir "bin"
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
-                            if ($currentPath -notlike "*$binPath*") {
-                                Write-Host "Adding azure-cli bin to system PATH"
-                                [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$SoftwareDir;$binPath", [System.EnvironmentVariableTarget]::Machine)
-                            } else {
-                                Write-Host "azure-cli bin is already in the system PATH"
-                            }
+                            Write-Host "Adding azure-cli bin to system PATH"
+                            [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$SoftwareDir;$binPath", [System.EnvironmentVariableTarget]::Machine)
                             Write-Host "azure-cli is install Successfully..."
                         }
                         "tabularEditor" {
-                            # Enable TLS 1.2 for secure download
-                            Write-Host "Setting TLS1.2..."
-                            [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor "Tls12"
-
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
-                            $tabularEditorPattern = "C:\cicd-tools\tabularEditor\*"
-                            $pathList = $currentPath.Split(';')
-                            $newPathList = $pathList | Where-Object { $_ -notlike $tabularEditorPattern }
-                            $newPath = [string]::Join(';', $newPathList)
-                            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
-
-                            $outFile = Join-Path $SoftwareDir "$AvailableSoftware.zip"
-                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$outFile" -Credential $credObject
-                            Write-Host "Download tabularEditor file to: $outFile" -Force
-                            Expand-Archive -Path $outFile -DestinationPath $SoftwareDir
-                            Remove-Item $outFile
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip" -Credential $credObject
+                            Write-Host "Download tabularEditor file to: $SoftwareDir\$AvailableSoftware.zip" -Force
+                            Expand-Archive -Path $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir
+                            Remove-Item $SoftwareDir\$AvailableSoftware.zip
 
                             [System.Environment]::SetEnvironmentVariable("PATH", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
-                            # Verify installation by checking for TabularEditor.exe
                             $tabularEditorPath = "$SoftwareDir\TabularEditor.exe"
                             if (Test-Path $tabularEditorPath) {
                                 Write-Host "Tabular Editor installed successfully."
@@ -750,66 +555,8 @@ stages:
                                 exit 1
                             }
                         }
-                        "mysql" {
-                            # Define variables
-                            $mysqlInstallerURL = "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.msi"
-                            $outFile = Join-Path $SoftwareDir "mysql-installer.msi"
-                            $logFile = Join-Path $SoftwareDir "install.log"
-
-                            # Ensure the directory is clean
-                            if (Test-Path $SoftwareDir) {
-                                Remove-Item -Recurse -Force $SoftwareDir
-                                Write-Host "Removing existing MySQL directory..."
-                            }
-                            New-Item -Path $SoftwareDir -ItemType Directory | Out-Null
-
-                            # Download MySQL installer
-                            Invoke-WebRequest -Uri $mysqlInstallerURL -OutFile $outFile -Credential $credObject
-                            Write-Host "Downloaded MySQL installer to: $outFile"
-
-                            # Install MySQL using msiexec directly
-                            try {
-                                # Using msiexec directly in PowerShell
-                                $msiExecCmd = "msiexec /i `"$outFile`" /qn /lv `"$logFile`" INSTALLDIR=`"$SoftwareDir`""
-                                Write-Host "Running command: $msiExecCmd"
-                                iex $msiExecCmd  # Executes the msiexec command
-                                Write-Host "MySQL installation completed. Log saved at: $logFile"
-                            } catch {
-                                Write-Host "MySQL installation failed. Please check the installer, paths, and log file."
-                                exit 1
-                            }
-
-                            # Verify installation
-                            $mysqlExePath = Join-Path $SoftwareDir "bin\mysql.exe"
-                            if (Test-Path $mysqlExePath) {
-                                Write-Host "MySQL installed successfully. Verifying version..."
-                                & "$mysqlExePath" --version
-                            } else {
-                                Write-Host "MySQL installation failed. Check the MSI installer and environment."
-                                exit 1
-                            }
-
-                            # Adding MySQL bin to PATH if not already added
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
-                            $binPath = Join-Path $SoftwareDir "bin"
-                            if ($currentPath -notlike "*$binPath*") {
-                                [System.Environment]::SetEnvironmentVariable("PATH", "$currentPath;$binPath", [System.EnvironmentVariableTarget]::Machine)
-                                Write-Host "MySQL bin path added to system PATH"
-                            } else {
-                                Write-Host "MySQL bin path already exists in the system PATH."
-                            }
-                        }
                         "kubectl" {
-                            $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
-                            $kubectlPattern = "C:\cicd-tools\kubectl\*"
-                            $pathList = $currentPath.Split(';')
-                            $newPathList = $pathList | Where-Object { $_ -notlike $kubectlPattern }
-                            $newPath = [string]::Join(';', $newPathList)
-
-                            # Remove old kubectl paths from PATH
-                            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
-                            Write-Host "Old kubectl paths removed from PATH."
-                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.exe" -OutFile $outFile -Credential $credObject
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.exe" -OutFile $SoftwareDir\$AvailableSoftware.exe -Credential $credObject
                             [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
                             Write-Host "Verifying kubectl installation..."
                             try {
@@ -819,5 +566,30 @@ stages:
                                 exit 1
                             }
                             Write-Host "kubectl installed successfully!"
+                        }
+                        "chrome" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.exe" -OutFile "$SoftwareDir\chrome_installer.exe" -Credential $credObject
+                            Write-Host "Installing Google Chrome silently..."
+                            Start-Process -FilePath $SoftwareDir\chrome_installer.exe -ArgumentList "/silent", "/install" -Wait
+                            Write-Host "Verify installation"
+                            $chromePath = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+                            if (Test-Path $chromePath) {
+                                Write-Host "Google Chrome installation completed successfully!"
+                                $chromeVersion = (Get-Item $chromePath).VersionInfo.ProductVersion
+                                Write-Host "Installed Chrome version: $chromeVersion"
+                            } else {
+                                Write-Host "Google Chrome installation failed."
+                                exit 1
+                            }
+                            Write-Host "Google Chrome installation completed."
+                        }
+                        "firefox" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.exe" -OutFile "$SoftwareDir\firefox.exe" -Credential $credObject
+                            Write-Host "Download firefox file to: $SoftwareDir\firefox.exe"
+                            Write-Host "Installing Firefox silently..."
+                            Start-Process -FilePath "$outFile" -ArgumentList "/S" -Wait
+                            Write-Host "Waiting for the installation to complete..."
+                            Start-Sleep -Seconds 35
+                            Write-Host "Firefox installation completed successfully."
                         }
                     }
