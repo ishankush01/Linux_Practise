@@ -608,4 +608,20 @@ stages:
                             Start-Process -FilePath $vcredistPath -ArgumentList "/install", "/quiet", "/norestart" -Wait
                             Write-Host "MySQL installation completed successfully."
                         }
+                        "vscode" {
+                            Write-Host "Downloading VSCode zip file from Artifactory..."
+                            # Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip" -Credential $credObject
+                            Write-Host "Extracting VSCode to $SoftwareDir..."
+                            Expand-Archive -Path "$SoftwareDir/$AvailableSoftware.zip" -DestinationPath $SoftwareDir -Force
+                            Remove-Item "$SoftwareDir\$AvailableSoftware.zip" -Force
+
+                            if (-not (Test-Path "$SoftwareDir\Code.exe")) {
+                                Write-Host "VSCode installation failed: Code.exe not found!"
+                                exit 1
+                            }
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
+                            Write-Host "Updated PATH environment variable with: $SoftwareDir"
+                            $vscodeVersion = & "$SoftwareDir\Code.exe" --version 2>&1
+                            Write-Host "VSCode version: $vscodeVersion"
+                        }
                     }
