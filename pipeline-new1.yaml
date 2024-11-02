@@ -639,4 +639,26 @@ stages:
                             $vscodeVersion = & "$SoftwareDir\Code.exe" --version 2>&1
                             Write-Host "VSCode version: $vscodeVersion"
                         }
+                        "gradle" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip" -Credential $credObject
+                            Write-Host "Extracting Gradle to $SoftwareDir..."
+                            Expand-Archive -Path $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir -Force
+                            $gradleBinPath = "$SoftwareDir\$AvailableSoftware\bin"
+                            $gradlePath = "$SoftwareDir\$AvailableSoftware"
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$gradleBinPath;$gradlePath", [System.EnvironmentVariableTarget]::Machine)
+                            Write-Host "Added Gradle to PATH."
+                            Write-Host "Verifying Gradle installation..."
+                            $gradleVersionOutput = & "$gradleBinPath\gradle.bat" -v
+                            Remove-Item $SoftwareDir\$AvailableSoftware.zip
+                            Write-Host $gradleVersionOutput
+                            Write-Host "Gradle $gradleVersion installation completed successfully."
+                        }
+                        "pwsh" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip" -Credential $credObject
+                            Write-Host "Extracting Powershell to $SoftwareDir..."
+                            Expand-Archive -Path $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir -Force
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
+                            Remove-Item $SoftwareDir\$AvailableSoftware.zip
+                            Write-Host "PowerShell installation completed successfully."
+                        }
                     }
