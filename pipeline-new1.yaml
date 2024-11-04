@@ -661,4 +661,22 @@ stages:
                             Remove-Item $SoftwareDir\$AvailableSoftware.zip
                             Write-Host "PowerShell installation completed successfully."
                         }
+                        "git-lfs" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip" -Credential $credObject
+                            Expand-Archive -Path $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir -Force
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
+                            Remove-Item $SoftwareDir\$AvailableSoftware.zip
+                        }
+                        "7-zip" {
+                            $InstallerPath = "$SoftwareDir\7z1900-x64.exe" 
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.exe" -OutFile $InstallerPath -Credential $credObject
+                            Start-Process -FilePath $InstallerPath -ArgumentList "/S" -Wait
+                            Remove-Item $InstallerPath
+                        }
+                        "cloud-foundry" {
+                            Invoke-WebRequest -Uri "${artifactoryURL}/cicd-pipeline-generic-local/$Software/windows/$AvailableSoftware.zip" -OutFile "$SoftwareDir\$AvailableSoftware.zip" -Credential $credObject
+                            Expand-Archive -Path $SoftwareDir\$AvailableSoftware.zip -DestinationPath $SoftwareDir
+                            [System.Environment]::SetEnvironmentVariable("Path", "$newPath;$SoftwareDir", [System.EnvironmentVariableTarget]::Machine)
+                            Remove-Item $SoftwareDir\$AvailableSoftware.zip
+                        }
                     }
